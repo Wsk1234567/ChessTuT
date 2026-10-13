@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>开局训练手册 · Opening Trainer</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --paper: #F5F1E8;
+    --paper-2: #EFE9DC;
+    --card: #FCFAF4;
+    --ink: #1F2421;
+    --ink-2: #5A5F58;
+    --ink-3: #8A8D84;
+    --line: #D9D2C2;
+    --sq-light: #EDE4CF;
+    --sq-dark: #5F7A5A;
+    --brass: #C8963E;
+    --brass-deep: #A87A2C;
+    --ok: #3E7A52;
+    --bad: #B4472E;
+    --hl: rgba(200, 150, 62, 0.55);
+    --serif: Georgia, 'Songti SC', 'SimSun', serif;
+    --sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+    --mono: ui-monospace, 'SF Mono', Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 14px; line-height: 1.6; }
+  body { min-height: 100vh; }
+
+  /* ── header ─────────────────────────────── */
+  header.site {
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(to bottom, #F8F4EC, var(--paper));
+  }
+  .head-inner { max-width: 1120px; margin: 0 auto; padding: 18px 24px 0; }
+  .brand { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .brand h1 { font-family: var(--serif); font-size: 24px; font-weight: 600; letter-spacing: 1px; }
+  .brand .sub { font-size: 12px; color: var(--ink-3); letter-spacing: 2px; text-transform: uppercase; }
+  nav.tabs { display: flex; gap: 4px; margin-top: 14px; }
+  nav.tabs button {
+    font-family: var(--sans); font-size: 14px; color: var(--ink-2);
+    background: none; border: none; border-bottom: 2px solid transparent;
+    padding: 8px 16px 10px; cursor: pointer;
+  }
+  nav.tabs button:hover { color: var(--ink); }
+  nav.tabs button.on { color: var(--ink); border-bottom-color: var(--brass); font-weight: 600; }
+
+  main { max-width: 1120px; margin: 0 auto; padding: 24px; }
+  .view { display: none; }
+  .view.on { display: block; }
+
+  /* ── browse layout ──────────────────────── */
+  .browse { display: grid; grid-template-columns: 240px minmax(340px, 520px) 1fr; gap: 24px; align-items: start; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .panel h3 { font-family: var(--serif); font-size: 15px; font-weight: 600; margin-bottom: 10px; color: var(--ink); }
+  .group-label { font-size: 11px; letter-spacing: 3px; color: var(--ink-3); margin: 14px 0 6px; }
+  .group-label:first-child { margin-top: 0; }
+  .line-item {
+    display: block; width: 100%; text-align: left; background: none; border: none;
+    border-radius: 8px; padding: 9px 10px; cursor: pointer; font-family: var(--sans); color: var(--ink);
+  }
+  .line-item:hover { background: var(--paper-2); }
+  .line-item.on { background: var(--paper-2); box-shadow: inset 3px 0 0 var(--brass); }
+  .line-item .t { font-weight: 600; font-size: 13.5px; }
+  .line-item .a { font-size: 12px; color: var(--ink-3); }
+
+  /* ── board ──────────────────────────────── */
+  .board-wrap { position: relative; width: 100%; max-width: 520px; margin: 0 auto; }
+  .board {
+    position: relative; width: 100%; aspect-ratio: 1; display: grid;
+    grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+    border: 3px solid #4A5A47; border-radius: 6px; overflow: hidden;
+    user-select: none; -webkit-user-select: none;
+  }
+  .sq { position: relative; display: flex; align-items: center; justify-content: center; cursor: default; }
+  .sq.l { background: var(--sq-light); }
+  .sq.d { background: var(--sq-dark); }
+  .sq.last { box-shadow: inset 0 0 0 99px rgba(200,150,62,0.35); }
+  .sq.sel { box-shadow: inset 0 0 0 99px rgba(200,150,62,0.5); }
+  .sq.hint-from, .sq.hint-to { box-shadow: inset 0 0 0 99px rgba(62,122,82,0.35); }
+  .board.playing .sq { cursor: pointer; }
+  .pc {
+    font-size: clamp(24px, 7.4cqw, 46px); line-height: 1; position: relative; z-index: 2;
+    font-family: 'Segoe UI Symbol', 'Noto Sans Symbols 2', 'DejaVu Sans', sans-serif;
+    transform: translateY(-1px);
+  }
+  .pc.w { color: #F8F3E7; -webkit-text-stroke: 1.1px #1F2421; paint-order: stroke fill; }
+  .pc.b { color: #232A26; -webkit-text-stroke: 0.6px #0d0f0e; paint-order: stroke fill; }
+  .board { container-type: inline-size; }
+  .coord { position: absolute; font-size: 9px; font-weight: 700; opacity: 0.65; z-index: 3; }
+  .coord.f { right: 3px; bottom: 1px; }
+  .coord.r { left: 3px; top: 1px; }
+  .sq.l .coord { color: var(--sq-dark); }
+  .sq.d .coord { color: var(--sq-light); }
+  .arrow-layer { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+
+  .board-nav { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 12px; }
+  .board-nav button, .btn {
+    font-family: var(--sans); font-size: 13px; color: var(--ink);
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+    padding: 7px 14px; cursor: pointer;
+  }
+  .board-nav button:hover, .btn:hover { border-color: var(--brass); }
+  .board-nav .ply-label { font-family: var(--mono); font-size: 12px; color: var(--ink-2); min-width: 74px; text-align: center; }
+  .btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .btn.primary:hover { background: #333; }
+  .btn.ghost { background: transparent; }
+
+  /* ── move list / notes ──────────────────── */
+  .movelist { display: grid; grid-template-columns: 34px 1fr 1fr; gap: 2px 6px; font-family: var(--mono); font-size: 13px; margin-bottom: 4px; }
+  .movelist .no { color: var(--ink-3); text-align: right; padding: 3px 0; }
+  .movelist .mv { padding: 3px 8px; border-radius: 5px; cursor: pointer; color: var(--ink); }
+  .movelist .mv:hover { background: var(--paper-2); }
+  .movelist .mv.cur { background: var(--brass); color: #fff; font-weight: 600; }
+  .movelist .mv.empty { cursor: default; }
+  .seq-switch { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .seq-switch button {
+    font-size: 12px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--paper); color: var(--ink-2); cursor: pointer; font-family: var(--sans);
+  }
+  .seq-switch button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .note-box {
+    margin-top: 14px; padding: 12px 14px; background: var(--paper-2);
+    border-left: 3px solid var(--brass); border-radius: 0 8px 8px 0; font-size: 13.5px;
+  }
+  .note-box .tag { display: block; font-size: 11px; letter-spacing: 2px; color: var(--brass-deep); margin-bottom: 4px; }
+  .meta-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .chip { font-size: 11px; padding: 3px 9px; border-radius: 999px; background: var(--paper-2); color: var(--ink-2); border: 1px solid var(--line); }
+  .chip.side-w { background: #F3EFE2; }
+  .chip.side-b { background: #DFE5DC; }
+  .intro { font-size: 13.5px; color: var(--ink-2); margin-bottom: 10px; }
+  .plan-box { font-size: 13px; color: var(--ink-2); background: var(--paper); border: 1px dashed var(--line); border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
+
+  /* ── drill ──────────────────────────────── */
+  .drill { max-width: 560px; margin: 0 auto; }
+  .drill .board-wrap { max-width: 460px; }
+  .drill-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; gap: 10px; flex-wrap: wrap; }
+  .drill-head .q { font-family: var(--serif); font-size: 17px; font-weight: 600; }
+  .drill-head .stat { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+  .drill-ctx { font-size: 13px; color: var(--ink-2); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 9px 13px; margin-bottom: 12px; }
+  .drill-ctx b { color: var(--ink); }
+  .feedback { min-height: 58px; margin-top: 12px; padding: 11px 14px; border-radius: 8px; font-size: 13.5px; border: 1px solid var(--line); background: var(--card); }
+  .feedback.ok { border-color: var(--ok); background: #EEF6F0; color: #2E5C3F; }
+  .feedback.bad { border-color: var(--bad); background: #FAEFEA; color: #8E3623; }
+  .feedback .fb-title { font-weight: 700; display: block; margin-bottom: 2px; }
+  .drill-ctl { display: flex; gap: 10px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+  .streak { font-family: var(--mono); font-size: 12px; color: var(--brass-deep); }
+
+  /* ── progress ───────────────────────────── */
+  .prog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+  .big-stat { display: flex; gap: 26px; margin-bottom: 6px; flex-wrap: wrap; }
+  .big-stat .item .n { font-family: var(--serif); font-size: 30px; font-weight: 600; color: var(--ink); }
+  .big-stat .item .l { font-size: 12px; color: var(--ink-3); }
+  .bar-row { margin-top: 12px; }
+  .bar-row .lbl { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+  .bar-row .lbl .pct { font-family: var(--mono); color: var(--ink-2); }
+  .bar { height: 8px; background: var(--paper-2); border-radius: 999px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--brass); border-radius: 999px; }
+  .weak-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
+  .weak-item:last-child { border-bottom: none; }
+  .weak-item .w-acc { font-family: var(--mono); font-size: 12px; color: var(--bad); }
+  .road li { list-style: none; padding: 10px 0; border-bottom: 1px dashed var(--line); font-size: 13.5px; display: flex; gap: 12px; }
+  .road li:last-child { border-bottom: none; }
+  .road .wk { flex: 0 0 88px; font-weight: 600; color: var(--brass-deep); }
+  .empty-tip { color: var(--ink-3); font-size: 13px; padding: 16px 0; }
+
+  footer { max-width: 1120px; margin: 30px auto 20px; padding: 0 24px; font-size: 11.5px; color: var(--ink-3); border-top: 1px solid var(--line); padding-top: 14px; }
+
+  @media (max-width: 960px) {
+    .browse { grid-template-columns: 1fr; }
+    .prog-grid { grid-template-columns: 1fr; }
+    .board-wrap { max-width: 460px; }
+  }
+</style>
+</head>
+<body>
+<header class="site">
+  <div class="head-inner">
+    <div class="brand">
+      <h1>开局训练手册</h1>
+      <span class="sub">Opening Trainer · 5 套体系 · 俱乐部实战向</span>
+    </div>
+    <nav class="tabs">
+      <button data-view="browse" class="on">开局库</button>
+      <button data-view="drill">钻练</button>
+      <button data-view="progress">进度</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- 开局库 -->
+  <section class="view on" id="view-browse">
+    <div class="browse">
+      <aside class="panel" id="line-list"></aside>
+
+      <div>
+        <div class="board-wrap">
+          <div class="board" id="browse-board"></div>
+          <svg class="arrow-layer" id="browse-arrow" viewBox="0 0 800 800"></svg>
+        </div>
+        <div class="board-nav">
+          <button id="nav-first" title="回到开局">⏮</button>
+          <button id="nav-prev" title="上一着">◀</button>
+          <span class="ply-label" id="nav-ply">开局</span>
+          <button id="nav-next" title="下一着">▶</button>
+          <button id="nav-last" title="跳到结尾">⏭</button>
+        </div>
+      </div>
+
+      <aside class="panel" id="detail"></aside>
+    </div>
+  </section>
+
+  <!-- 钻练 -->
+  <section class="view" id="view-drill">
+    <div class="drill">
+      <div class="drill-head">
+        <span class="q" id="drill-q">准备中…</span>
+        <span class="stat" id="drill-stat"></span>
+      </div>
+      <div class="drill-ctx" id="drill-ctx"></div>
+      <div class="board-wrap">
+        <div class="board" id="drill-board"></div>
+        <svg class="arrow-layer" id="drill-arrow" viewBox="0 0 800 800"></svg>
+      </div>
+      <div class="feedback" id="drill-fb">点击棋子走出你认为正确的着法。</div>
+      <div class="drill-ctl">
+        <button class="btn" id="btn-hint">提示</button>
+        <button class="btn ghost" id="btn-skip">跳过</button>
+        <button class="btn primary" id="btn-next">下一题 →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 进度 -->
+  <section class="view" id="view-progress">
+    <div class="prog-grid">
+      <div class="panel">
+        <h3>总体进度</h3>
+        <div class="big-stat" id="prog-stats"></div>
+        <div id="prog-bars"></div>
+        <div class="plan-box" style="margin-top:16px">
+          <b>钻练规则：</b>优先推送没见过和正确率低的卡片。走错两次会亮出正确着法箭头；「提示」不计入成绩。进度存在浏览器本地（localStorage）。
+        </div>
+      </div>
+      <div>
+        <div class="panel" style="margin-bottom:24px">
+          <h3>薄弱卡片（正确率最低）</h3>
+          <div id="weak-list"></div>
+        </div>
+        <div class="panel">
+          <h3>8 周学习路线</h3>
+          <ul class="road" id="road-list"></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>开局训练手册 · 数据经 chess.js 逐步校验 · 本地运行，无需联网</footer>
+<script type="module" src="app.js"></script>
+</body>
+</html>
