@@ -1,28 +1,39 @@
-// 开局训练手册 — 应用逻辑
+// Opening Trainer — application logic
 import { REPERTOIRE, ROADMAP } from './data.js';
 import { Chess } from './chess.esm.js';
+import { getLang, setLang, t, bi, sideName } from './i18n.js';
 
-/* ═══════════ 基础工具 ═══════════ */
+/* ═══════════ helpers ═══════════ */
 const $ = (sel) => document.querySelector(sel);
-const GLYPH = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
+const PIECE_FILE = { k: 'K', q: 'Q', r: 'R', b: 'B', n: 'N', p: 'P' };
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-
 const lineById = Object.fromEntries(REPERTOIRE.map((l) => [l.id, l]));
+const moveNo = (i) => Math.floor(i / 2) + 1;
 
-/* ═══════════ 进度存储 ═══════════ */
+/* ═══════════ storage ═══════════ */
 const STORE_KEY = 'ot-progress-v1';
+const TUT_KEY = 'ot-tut-v1';
 let stats = {};
+let tutDone = {};
 try {
   stats = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
 } catch {
   stats = {};
 }
+try {
+  tutDone = JSON.parse(localStorage.getItem(TUT_KEY) || '{}');
+} catch {
+  tutDone = {};
+}
 function saveStats() {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify(stats));
-  } catch {
-    /* 隐私模式下忽略 */
-  }
+  } catch {}
+}
+function saveTut() {
+  try {
+    localStorage.setItem(TUT_KEY, JSON.stringify(tutDone));
+  } catch {}
 }
 function record(cardId, ok) {
   const s = stats[cardId] || (stats[cardId] = { c: 0, w: 0 });
@@ -35,7 +46,7 @@ function acc(s) {
   return s.c / (s.c + s.w);
 }
 
-/* ═══════════ 钻练卡片生成 ═══════════ */
+/* ═══════════ drill cards ═══════════ */
 function buildCards() {
   const cards = [];
   for (const line of REPERTOIRE) {
@@ -60,7 +71,7 @@ function buildCards() {
           san: mv.san,
           note: seq.notes[i] || seq.note || null,
           oppPrev: prevSan,
-          fullMove: Math.floor(i / 2) + 1,
+          fullMove: moveNo(i),
         });
       }
     });
@@ -70,7 +81,6 @@ function buildCards() {
 const CARDS = buildCards();
 const cardById = Object.fromEntries(CARDS.map((c) => [c.id, c]));
 
-/* 卡片取序：未见过 → 正确率低 → 其余随机 */
 let lastCardId = null;
 function pickCard() {
   const scored = CARDS.map((c) => {
@@ -88,7 +98,7 @@ function pickCard() {
   return scored[0].c;
 }
 
-/* ═══════════ 棋盘渲染 ═══════════ */
+/* ═══════════ board ═══════════ */
 function centerOf(sq, orientation) {
   const f = sq.charCodeAt(0) - 97;
   const r = sq.charCodeAt(1) - 49;
@@ -113,10 +123,6 @@ function clearArrow(svg) {
   svg.innerHTML = '';
 }
 
-/**
- * 渲染棋盘。
- * opts: { orientation, lastMove:{from,to}, sel: sq, hint:{from,to} }
- */
 function renderBoard(el, chess, opts = {}) {
   const ori = opts.orientation || 'w';
   const files = ori === 'w' ? FILES : [...FILES].reverse();
@@ -137,7 +143,10 @@ function renderBoard(el, chess, opts = {}) {
       if (opts.hint && opts.hint.to === name) cls.push('hint-to');
       const p = boardMap[name];
       let inner = '';
-      if (p) inner += `<span class="pc ${p.color === 'w' ? 'w' : 'b'}">${GLYPH[p.type]}</span>`;
+      if (p) {
+        const code = PIECE_FILE[p.type];
+        inner += `<img class="pc" src="pieces/${p.color}${code}.svg" alt="${p.color}${code}" draggable="false">`;
+      }
       const visRow = ranks.indexOf(r), visCol = files.indexOf(f);
       if (visCol === 0) inner += `<span class="coord r">${r}</span>`;
       if (visRow === 7) inner += `<span class="coord f">${f}</span>`;
@@ -147,8 +156,13 @@ function renderBoard(el, chess, opts = {}) {
   el.innerHTML = html;
 }
 
-/* ═══════════ 视图切换 ═══════════ */
-const views = { browse: $('#view-browse'), drill: $('#view-drill'), progress: $('#view-progress') };
+/* ═══════════ views ═══════════ */
+const views = {
+  browse: $('#view-browse'),
+  drill: $('#view-drill'),
+  tutorial: $('#view-tutorial'),
+  progress: $('#view-progress'),
+};
 let currentView = 'browse';
 function showView(name) {
   currentView = name;
@@ -156,27 +170,62 @@ function showView(name) {
   document.querySelectorAll('nav.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === name));
   if (name === 'progress') renderProgress();
   if (name === 'drill' && !drill.card) nextCard();
+  if (name === 'tutorial' && !tut.lineId) renderTutList();
 }
-document.querySelectorAll('nav.tabs button').forEach((b) => b.addEventListener('click', () => showView(b.dataset.view)));
+document.querySelectorAll('nav.tabs button').forEach((b) =>
+  b.addEventListener('click', () => showView(b.dataset.view))
+);
 
-/* ═══════════ 开局库浏览 ═══════════ */
+/* ═══════════ i18n static + re-render ═══════════ */
+function applyI18n() {
+  document.documentElement.lang = getLang() === 'zh' ? 'zh-CN' : 'en';
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach((el) => {
+    el.innerHTML = t(el.dataset.i18nHtml);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+    el.title = t(el.dataset.i18nTitle);
+  });
+  renderLineList();
+  renderDetail();
+  renderBrowseBoard();
+  renderTutList();
+  if (tut.lineId) {
+    renderTutNarration();
+    renderTutBoard();
+    setTutButtons();
+  } else {
+    renderTutNarration();
+    setTutButtons();
+  }
+  if (drill.card) loadCard(drill.card);
+}
+$('#lang-btn').addEventListener('click', () => {
+  setLang(getLang() === 'zh' ? 'en' : 'zh');
+  applyI18n();
+});
+
+/* ═══════════ library browse ═══════════ */
 const browse = { lineId: REPERTOIRE[0].id, seqIdx: 0, ply: 0 };
 
 function currentSeq(b = browse) {
   const line = lineById[b.lineId];
-  return b.seqIdx === 0 ? { name: line.main.name, san: line.main.san, notes: line.main.notes || {}, note: null } : line.sidelines[b.seqIdx - 1];
+  return b.seqIdx === 0
+    ? { name: line.main.name, san: line.main.san, notes: line.main.notes || {}, note: null }
+    : line.sidelines[b.seqIdx - 1];
 }
 
 function renderLineList() {
   const el = $('#line-list');
   let html = '';
-  for (const group of ['白棋', '黑棋']) {
-    html += `<div class="group-label">${group}</div>`;
+  for (const group of ['White', 'Black']) {
+    html += `<div class="group-label">${group === 'White' ? t('side.white') : t('side.black')}</div>`;
     for (const line of REPERTOIRE.filter((l) => l.group === group)) {
-      const done = line.main.san.length;
       html += `<button class="line-item ${line.id === browse.lineId ? 'on' : ''}" data-id="${line.id}">
-        <div class="t">${line.title}</div>
-        <div class="a">${line.against} · ${done} 步主线</div>
+        <div class="t"><span>${bi(line.title)}</span>${tutDone[line.id] ? `<span class="badge">${t('line.badge.tut')}</span>` : ''}</div>
+        <div class="a">${bi(line.against)} · ${t('line.plies', line.main.san.length)}</div>
       </button>`;
     }
   }
@@ -205,16 +254,15 @@ function replayB() {
 }
 
 function renderBrowseBoard() {
-  const { ch, last, seq } = replayB();
+  const { ch, last } = replayB();
   const line = lineById[browse.lineId];
   renderBoard($('#browse-board'), ch, { orientation: line.side, lastMove: last });
   const arrow = $('#browse-arrow');
   if (last) drawArrow(arrow, last.from, last.to, line.side, '#A87A2C');
   else clearArrow(arrow);
   $('#nav-ply').textContent =
-    browse.ply === 0 ? '开局' : `第 ${Math.ceil(browse.ply / 2)} 回合 · ${browse.ply} 步`;
+    browse.ply === 0 ? t('nav.start') : t('nav.ply', Math.ceil(browse.ply / 2), browse.ply);
 
-  // 着法列表高亮
   const mvEls = document.querySelectorAll('#detail .movelist .mv');
   mvEls.forEach((m) => m.classList.toggle('cur', Number(m.dataset.i) === browse.ply - 1));
 }
@@ -225,56 +273,57 @@ function renderDetail() {
   const el = $('#detail');
 
   let switchHtml = `<div class="seq-switch">`;
-  switchHtml += `<button class="${browse.seqIdx === 0 ? 'on' : ''}" data-seq="0">主线 · ${line.main.name}</button>`;
+  switchHtml += `<button class="${browse.seqIdx === 0 ? 'on' : ''}" data-seq="0">${t('seq.main', bi(line.main.name))}</button>`;
   line.sidelines.forEach((s, i) => {
-    switchHtml += `<button class="${browse.seqIdx === i + 1 ? 'on' : ''}" data-seq="${i + 1}">${s.name}</button>`;
+    switchHtml += `<button class="${browse.seqIdx === i + 1 ? 'on' : ''}" data-seq="${i + 1}">${bi(s.name)}</button>`;
   });
   switchHtml += `</div>`;
 
-  // 着法网格
   let ml = `<div class="movelist">`;
   const n = seq.san.length;
   for (let i = 0; i < n; i += 2) {
     ml += `<div class="no">${i / 2 + 1}.</div>`;
     ml += `<div class="mv ${browse.ply === i + 1 ? 'cur' : ''}" data-i="${i}">${seq.san[i]}</div>`;
-    ml += i + 1 < n
-      ? `<div class="mv ${browse.ply === i + 2 ? 'cur' : ''}" data-i="${i + 1}">${seq.san[i + 1]}</div>`
-      : `<div class="mv empty"></div>`;
+    ml +=
+      i + 1 < n
+        ? `<div class="mv ${browse.ply === i + 2 ? 'cur' : ''}" data-i="${i + 1}">${seq.san[i + 1]}</div>`
+        : `<div class="mv empty"></div>`;
   }
   ml += `</div>`;
 
-  // 注释
   let noteHtml = '';
   if (browse.ply === 0) {
-    noteHtml = `<div class="note-box"><span class="tag">整体计划</span>${line.plan}</div>`;
+    noteHtml = `<div class="note-box"><span class="tag">${t('note.howto')}</span>${t('note.howto.body')}</div>`;
   } else if (seq.notes[browse.ply - 1]) {
-    noteHtml = `<div class="note-box"><span class="tag">这一步 · ${seq.san[browse.ply - 1]}</span>${seq.notes[browse.ply - 1]}</div>`;
+    noteHtml = `<div class="note-box"><span class="tag">${t('note.thismove')} · ${seq.san[browse.ply - 1]}</span>${bi(seq.notes[browse.ply - 1])}</div>`;
   } else {
     let idx = -1;
     for (let i = browse.ply - 1; i >= 0; i--) {
       if (seq.notes[i]) { idx = i; break; }
     }
     if (idx >= 0) {
-      noteHtml = `<div class="note-box"><span class="tag">要点 · ${seq.san[idx]}（第 ${Math.floor(idx / 2) + 1} 回合）</span>${seq.notes[idx]}</div>`;
+      noteHtml = `<div class="note-box"><span class="tag">${t('note.key.at', seq.san[idx], moveNo(idx))}</span>${bi(seq.notes[idx])}</div>`;
     } else if (seq.note) {
-      noteHtml = `<div class="note-box"><span class="tag">${seq.name}</span>${seq.note}</div>`;
+      noteHtml = `<div class="note-box"><span class="tag">${bi(seq.name)}</span>${bi(seq.note)}</div>`;
     } else {
-      noteHtml = `<div class="note-box"><span class="tag">提示</span>用 ▶ 逐步推演，重点着法都有注释。整体计划见下方。</div>`;
+      noteHtml = `<div class="note-box"><span class="tag">${t('note.tip')}</span>${t('note.tip.body')}</div>`;
     }
   }
 
   el.innerHTML = `
     <div class="meta-row">
-      <span class="chip ${line.side === 'w' ? 'side-w' : 'side-b'}">${line.group} · ${line.title}</span>
-      <span class="chip">vs ${line.against}</span>
-      <span class="chip">ECO ${line.eco}</span>
+      <span class="chip ${line.side === 'w' ? 'side-w' : 'side-b'}">${line.group === 'White' ? t('side.white') : t('side.black')} · ${bi(line.title)}</span>
+      <span class="chip">${t('detail.vs', bi(line.against))}</span>
+      <span class="chip">${t('detail.eco', line.eco)}</span>
     </div>
-    <p class="intro">${line.intro}</p>
+    <p class="intro">${bi(line.intro)}</p>
+    <div class="callout purpose"><span class="tag">${t('callout.purpose')}</span>${bi(line.purpose)}</div>
+    <div class="callout potential"><span class="tag">${t('callout.potential')}</span>${bi(line.potential)}</div>
     ${switchHtml}
-    <h3>着法</h3>
+    <h3>${t('moves')}</h3>
     ${ml}
     ${noteHtml}
-    <div class="plan-box"><b>中局计划：</b>${line.plan}</div>
+    <div class="plan-box"><b>${t('plan.middlegame')}:</b> ${bi(line.plan)}</div>
   `;
 
   el.querySelectorAll('.seq-switch button').forEach((b) =>
@@ -310,16 +359,17 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight') navPly(1);
 });
 
-/* ═══════════ 钻练模式 ═══════════ */
+/* ═══════════ drill mode ═══════════ */
 const drill = {
   card: null,
   chess: null,
   sel: null,
   wrong: 0,
   hinted: false,
-  status: 'play', // play | done | reveal
+  status: 'play',
   sessionOk: 0,
   sessionAll: 0,
+  lastMove: null,
 };
 
 function setFb(kind, html) {
@@ -331,22 +381,20 @@ function setFb(kind, html) {
 function renderDrillBoard() {
   const c = drill.card;
   if (!c) return;
-  renderBoard($('#drill-board'), drill.chess, {
-    orientation: c.side,
-    sel: drill.sel,
-    hint: drill.status === 'reveal' || drill.hinted
-      ? { from: c.uci.slice(0, 2), to: c.uci.slice(2, 4) }
-      : null,
-  });
+  const showing = drill.status === 'reveal' || drill.hinted
+    ? { from: c.uci.slice(0, 2), to: c.uci.slice(2, 4) }
+    : null;
+  renderBoard($('#drill-board'), drill.chess, { orientation: c.side, sel: drill.sel, hint: showing });
   const arrow = $('#drill-arrow');
-  if (drill.status === 'reveal' || drill.hinted) {
-    drawArrow(arrow, c.uci.slice(0, 2), c.uci.slice(2, 4), c.side, '#3E7A52');
-  } else if (drill.status === 'done') {
-    const mv = drill.lastMove;
-    if (mv) drawArrow(arrow, mv.from, mv.to, c.side, '#3E7A52');
-  } else {
-    clearArrow(arrow);
-  }
+  if (showing) drawArrow(arrow, showing.from, showing.to, c.side, '#3E7A52');
+  else if (drill.status === 'done' && drill.lastMove) drawArrow(arrow, drill.lastMove.from, drill.lastMove.to, c.side, '#3E7A52');
+  else clearArrow(arrow);
+}
+
+function pctText(cardId) {
+  const s = stats[cardId];
+  const a = acc(s);
+  return a === null ? '—' : Math.round(a * 100) + '%';
 }
 
 function loadCard(card) {
@@ -359,15 +407,13 @@ function loadCard(card) {
   drill.lastMove = null;
   lastCardId = card.id;
 
-  $('#drill-q').textContent = `${card.side === 'w' ? '白' : '黑'}方走 · ${card.title}`;
+  $('#drill-q').textContent = t('drill.q', sideName(card.side), bi(card.title));
   const s = stats[card.id];
-  const seenTxt = s && s.c + s.w > 0 ? `历史 ${s.c}/${s.c + s.w}` : '未练过';
-  $('#drill-stat').innerHTML =
-    `本组 ${drill.sessionOk}/${drill.sessionAll} · <span class="streak">${seenTxt}</span>`;
-  const opp = card.oppPrev ? `对手上一步 <b>${card.oppPrev}</b>，` : '';
-  $('#drill-ctx').innerHTML =
-    `<b>${card.seqName}</b> · 第 ${card.fullMove} 回合 —— ${opp}轮到你走。想好整步（起点和终点）再点棋子。`;
-  setFb('', '点击棋子走出你认为正确的着法。');
+  const seenTxt = s && s.c + s.w > 0 ? t('drill.history', s.c, s.c + s.w) : t('drill.new');
+  $('#drill-stat').innerHTML = `${t('drill.set', drill.sessionOk, drill.sessionAll)} · <span class="streak">${seenTxt}</span>`;
+  const opp = card.oppPrev ? t('drill.opp', card.oppPrev) : '';
+  $('#drill-ctx').innerHTML = `${t('drill.ctx', bi(card.seqName), card.fullMove)}${opp}${t('drill.ctxEnd')}`;
+  setFb('', t('drill.fb.default'));
   renderDrillBoard();
 }
 
@@ -398,7 +444,6 @@ function onSquareClick(sq) {
     return;
   }
 
-  // 尝试走子
   let mv = null;
   try {
     mv = chess.move({ from: drill.sel, to: sq, promotion: 'q' });
@@ -406,7 +451,7 @@ function onSquareClick(sq) {
     mv = null;
   }
   if (!mv) {
-    setFb('bad', '<span class="fb-title">不合法</span>这步走不出来，换个想法。');
+    setFb('bad', t('drill.fb.illegal'));
     drill.sel = null;
     renderDrillBoard();
     return;
@@ -416,23 +461,22 @@ function onSquareClick(sq) {
   const card = drill.card;
 
   if (uci === card.uci) {
-    // 正确
     drill.sel = null;
     drill.status = 'done';
     drill.lastMove = { from: mv.from, to: mv.to };
     record(card.id, true);
     drill.sessionOk++;
     drill.sessionAll++;
-    const note = card.note ? `<div style="margin-top:4px">${card.note}</div>` : '';
-    setFb('ok', `<span class="fb-title">正确！ ${mv.san}</span>${note}`);
-    $('#drill-stat').innerHTML =
-      `本组 ${drill.sessionOk}/${drill.sessionAll} · <span class="streak">正确率 ${pctText(card.id)}</span>`;
+    const note = card.note ? `<div style="margin-top:4px">${bi(card.note)}</div>` : '';
+    setFb('ok', `<span class="fb-title">${t('drill.fb.correct')} ${mv.san}</span>${note}`);
+    $('#drill-stat').innerHTML = `${t('drill.set', drill.sessionOk, drill.sessionAll)} · <span class="streak">${t('drill.accuracy', pctText(card.id))}</span>`;
     renderDrillBoard();
-    setTimeout(() => { if (drill.status === 'done') nextCard(); }, card.note ? 2600 : 1300);
+    setTimeout(() => {
+      if (drill.status === 'done') nextCard();
+    }, card.note ? 2600 : 1300);
     return;
   }
 
-  // 合法但不是推荐着法
   chess.undo();
   drill.sel = null;
   drill.wrong++;
@@ -440,23 +484,11 @@ function onSquareClick(sq) {
   drill.sessionAll++;
   if (drill.wrong >= 2) {
     drill.status = 'reveal';
-    setFb(
-      'bad',
-      `<span class="fb-title">正确着法是 ${card.san}</span>` +
-      (card.note ? card.note : '把这步收进你的开局笔记，稍后回来重练。')
-    );
-    renderDrillBoard();
+    setFb('bad', t('drill.fb.reveal', card.san) + (card.note ? bi(card.note) : t('drill.fb.revealNote')));
   } else {
-    setFb('bad', `<span class="fb-title">不是这步</span>再想想——这局已经错 1 次，再错一次会亮出答案。`);
-    renderDrillBoard();
+    setFb('bad', t('drill.fb.notquite'));
   }
-}
-
-function pctText(cardId) {
-  const s = stats[cardId];
-  const a = acc(s);
-  if (a === null) return '—';
-  return Math.round(a * 100) + '%';
+  renderDrillBoard();
 }
 
 $('#drill-board').addEventListener('click', (e) => {
@@ -468,17 +500,308 @@ $('#drill-board').classList.add('playing');
 $('#btn-hint').addEventListener('click', () => {
   if (!drill.card || drill.status !== 'play') return;
   drill.hinted = true;
-  setFb('', '<span class="fb-title">提示已亮出</span>箭头指向推荐着法——试着理解为什么，再点它。');
+  setFb('', t('drill.fb.hint'));
   renderDrillBoard();
 });
 $('#btn-skip').addEventListener('click', () => nextCard());
 $('#btn-next').addEventListener('click', () => nextCard());
 
-/* ═══════════ 进度页 ═══════════ */
-function lineCards(lineId) {
-  return CARDS.filter((c) => c.lineId === lineId);
+/* ═══════════ tutorial mode ═══════════ */
+const tut = {
+  lineId: null,
+  ply: -1,
+  chess: null,
+  sel: null,
+  revealed: false,
+  mode: 'idle',
+  lastMove: null,
+};
+
+function tutLine() {
+  return tut.lineId ? lineById[tut.lineId] : null;
+}
+function tutSeq() {
+  const line = tutLine();
+  return line ? line.main : null;
 }
 
+function renderTutList() {
+  const el = $('#tut-list');
+  let html = '';
+  for (const group of ['White', 'Black']) {
+    html += `<div class="group-label">${group === 'White' ? t('side.white') : t('side.black')}</div>`;
+    for (const line of REPERTOIRE.filter((l) => l.group === group)) {
+      html += `<button class="line-item ${line.id === tut.lineId ? 'on' : ''}" data-id="${line.id}">
+        <div class="t"><span>${bi(line.title)}</span>${tutDone[line.id] ? `<span class="badge">${t('line.badge.done')}</span>` : ''}</div>
+        <div class="a">${bi(line.against)} · ${t('line.guided')}</div>
+      </button>`;
+    }
+  }
+  el.innerHTML = html;
+  el.querySelectorAll('.line-item').forEach((b) =>
+    b.addEventListener('click', () => startTutorial(b.dataset.id))
+  );
+}
+
+function setTutFb(kind, html) {
+  const fb = $('#tut-fb');
+  fb.className = 'tut-feedback' + (kind ? ' ' + kind : '');
+  fb.innerHTML = html;
+}
+
+function renderTutBoard() {
+  const line = tutLine();
+  if (!line || !tut.chess) return;
+  let hint = null;
+  if (tut.revealed && tut.mode === 'await') {
+    const ch = new Chess();
+    for (let i = 0; i < tut.ply; i++) ch.move(tutSeq().san[i]);
+    const mv = ch.move(tutSeq().san[tut.ply]);
+    if (mv) hint = { from: mv.from, to: mv.to };
+  }
+  renderBoard($('#tut-board'), tut.chess, {
+    orientation: line.side,
+    sel: tut.sel,
+    hint,
+    lastMove: tut.lastMove,
+  });
+  const arrow = $('#tut-arrow');
+  if (hint) drawArrow(arrow, hint.from, hint.to, line.side, '#3E7A52');
+  else if (tut.lastMove) drawArrow(arrow, tut.lastMove.from, tut.lastMove.to, line.side, '#A87A2C');
+  else clearArrow(arrow);
+}
+
+function startTutorial(lineId) {
+  tut.lineId = lineId;
+  tut.ply = -1;
+  tut.chess = new Chess();
+  tut.sel = null;
+  tut.revealed = false;
+  tut.mode = 'intro';
+  tut.lastMove = null;
+  renderTutList();
+  renderTutNarration();
+  renderTutBoard();
+  setTutFb('', t('tut.fb.read'));
+  setTutButtons();
+}
+
+function renderTutNarration() {
+  const line = tutLine();
+  const el = $('#tut-narr');
+  if (!line) {
+    el.innerHTML = `<span class="step-tag">${t('tut.pick')}</span><h4>${t('tut.pickH')}</h4>
+      <div>${t('tut.pickB')}</div>`;
+    return;
+  }
+  const seq = tutSeq();
+
+  if (tut.mode === 'intro' || tut.ply < 0) {
+    el.innerHTML = `
+      <span class="step-tag">${t('tut.overview')} · ${line.group === 'White' ? t('side.white') : t('side.black')}</span>
+      <h4>${bi(line.title)} <span style="color:var(--ink-3);font-weight:400">${t('detail.vs', bi(line.against))}</span></h4>
+      <div style="color:var(--ink-2)">${bi(line.intro)}</div>
+      <div class="callout purpose"><span class="tag">${t('callout.purpose')}</span>${bi(line.purpose)}</div>
+      <div class="callout potential"><span class="tag">${t('callout.potential')}</span>${bi(line.potential)}</div>
+      <div class="plan-box" style="margin-top:10px"><b>${t('plan.middlegame')}:</b> ${bi(line.plan)}</div>`;
+    return;
+  }
+
+  if (tut.mode === 'done') {
+    el.innerHTML = `
+      <span class="step-tag">${t('tut.complete')}</span>
+      <h4>${t('tut.completeH', bi(line.title))}</h4>
+      <div style="color:var(--ink-2)">${t('tut.completeB')}</div>
+      <div class="callout purpose"><span class="tag">${t('callout.purpose')}</span>${bi(line.purpose)}</div>
+      <div class="callout potential"><span class="tag">${t('callout.potential')}</span>${bi(line.potential)}</div>`;
+    return;
+  }
+
+  const san = seq.san[tut.ply];
+  const yours = (tut.ply % 2 === 0 ? 'w' : 'b') === line.side;
+  const noteEntry = seq.notes[tut.ply];
+  const note = noteEntry ? bi(noteEntry) : yours ? t('tut.note.yourDefault') : t('tut.note.oppDefault');
+  const header = yours
+    ? t('tut.moveTag', moveNo(tut.ply), true) + ' · ' + (tut.revealed || tut.mode === 'ready' ? san : t('tut.play'))
+    : t('tut.moveTag', moveNo(tut.ply), false) + ' ' + san;
+  el.innerHTML = `
+    <span class="step-tag">${header}</span>
+    <h4>${yours ? (tut.revealed || tut.mode === 'ready' ? `▶ ${san}` : t('tut.play')) : t('tut.theyPlay', san)}</h4>
+    <div style="color:var(--ink-2)">${note}</div>`;
+}
+
+function setTutButtons() {
+  const next = $('#tut-next');
+  const show = $('#tut-show');
+  if (tut.mode === 'intro') {
+    next.textContent = t('btn.begin');
+    next.disabled = false;
+    show.disabled = true;
+  } else if (tut.mode === 'await') {
+    next.textContent = t('btn.continue');
+    next.disabled = true;
+    show.disabled = false;
+  } else if (tut.mode === 'ready') {
+    next.textContent = t('btn.continue');
+    next.disabled = false;
+    show.disabled = true;
+  } else if (tut.mode === 'done') {
+    next.textContent = t('btn.drillLine');
+    next.disabled = false;
+    show.disabled = true;
+  } else {
+    next.textContent = t('btn.continue');
+    next.disabled = true;
+    show.disabled = true;
+  }
+}
+
+function tutGoNext() {
+  const line = tutLine();
+  const seq = tutSeq();
+  if (!line) return;
+
+  if (tut.mode === 'intro') {
+    tut.ply = 0;
+    beginPly();
+    return;
+  }
+  if (tut.mode === 'ready') {
+    const sideToMove = tut.ply % 2 === 0 ? 'w' : 'b';
+    if (sideToMove === line.side) {
+      tut.ply++;
+    } else {
+      const mv = tut.chess.move(seq.san[tut.ply]);
+      if (mv) tut.lastMove = { from: mv.from, to: mv.to };
+      tut.ply++;
+    }
+    if (tut.ply >= seq.san.length) {
+      finishTut();
+      return;
+    }
+    beginPly();
+    return;
+  }
+  if (tut.mode === 'done') {
+    const card = CARDS.find((c) => c.lineId === line.id && c.seqName === line.main.name);
+    if (card) {
+      showView('drill');
+      loadCard(card);
+    }
+    return;
+  }
+}
+
+function beginPly() {
+  const line = tutLine();
+  const seq = tutSeq();
+  tut.sel = null;
+  tut.revealed = false;
+  const sideToMove = tut.ply % 2 === 0 ? 'w' : 'b';
+  const yours = sideToMove === line.side;
+  tut.mode = yours ? 'await' : 'ready';
+  renderTutNarration();
+  renderTutBoard();
+  setTutButtons();
+  if (yours) {
+    setTutFb('', t('tut.fb.yourTurn'));
+    $('#tut-board').classList.add('playing');
+  } else {
+    setTutFb('', t('tut.fb.opp', seq.san[tut.ply]));
+    $('#tut-board').classList.remove('playing');
+  }
+}
+
+function finishTut() {
+  tut.mode = 'done';
+  tutDone[tut.lineId] = true;
+  saveTut();
+  renderTutList();
+  renderTutNarration();
+  renderTutBoard();
+  setTutButtons();
+  setTutFb('ok', t('tut.fb.done'));
+}
+
+function onTutSquare(sq) {
+  const line = tutLine();
+  if (!line || tut.mode !== 'await') return;
+  const chess = tut.chess;
+  const piece = chess.get(sq);
+  const seq = tutSeq();
+
+  if (!tut.sel) {
+    if (piece && piece.color === chess.turn()) {
+      tut.sel = sq;
+      renderTutBoard();
+    }
+    return;
+  }
+  if (sq === tut.sel) {
+    tut.sel = null;
+    renderTutBoard();
+    return;
+  }
+  if (piece && piece.color === chess.turn()) {
+    tut.sel = sq;
+    renderTutBoard();
+    return;
+  }
+
+  let mv = null;
+  try {
+    mv = chess.move({ from: tut.sel, to: sq, promotion: 'q' });
+  } catch {
+    mv = null;
+  }
+  if (!mv) {
+    setTutFb('bad', t('tut.fb.illegal'));
+    tut.sel = null;
+    renderTutBoard();
+    return;
+  }
+
+  const expected = seq.san[tut.ply];
+  const uci = mv.from + mv.to + (mv.promotion || '');
+  const ch2 = new Chess();
+  for (let i = 0; i < tut.ply; i++) ch2.move(seq.san[i]);
+  const expMv = ch2.move(expected);
+  const expUci = expMv.from + expMv.to + (expMv.promotion || '');
+
+  if (uci === expUci) {
+    tut.sel = null;
+    tut.mode = 'ready';
+    tut.lastMove = { from: mv.from, to: mv.to };
+    renderTutNarration();
+    renderTutBoard();
+    setTutButtons();
+    setTutFb('ok', t('tut.fb.correct', mv.san));
+  } else {
+    chess.undo();
+    tut.sel = null;
+    renderTutBoard();
+    setTutFb('bad', t('tut.fb.notLine'));
+  }
+}
+
+$('#tut-board').addEventListener('click', (e) => {
+  const sq = e.target.closest('[data-sq]');
+  if (sq) onTutSquare(sq.dataset.sq);
+});
+$('#tut-show').addEventListener('click', () => {
+  if (tut.mode !== 'await') return;
+  tut.revealed = true;
+  renderTutNarration();
+  renderTutBoard();
+  setTutFb('', t('tut.fb.show'));
+});
+$('#tut-restart').addEventListener('click', () => {
+  if (!tut.lineId) return;
+  startTutorial(tut.lineId);
+});
+$('#tut-next').addEventListener('click', () => tutGoNext());
+
+/* ═══════════ progress ═══════════ */
 function renderProgress() {
   let total = CARDS.length, seen = 0, ok = 0, bad = 0;
   for (const c of CARDS) {
@@ -486,46 +809,54 @@ function renderProgress() {
     if (s && s.c + s.w > 0) { seen++; ok += s.c; bad += s.w; }
   }
   const a = ok + bad ? ok / (ok + bad) : null;
+  const tuts = REPERTOIRE.filter((l) => tutDone[l.id]).length;
   $('#prog-stats').innerHTML = `
-    <div class="item"><div class="n">${total}</div><div class="l">卡片总数</div></div>
-    <div class="item"><div class="n">${seen}</div><div class="l">已练卡片</div></div>
-    <div class="item"><div class="n">${a === null ? '—' : Math.round(a * 100) + '%'}</div><div class="l">总正确率</div></div>
-    <div class="item"><div class="n">${ok + bad}</div><div class="l">累计作答</div></div>
+    <div class="item"><div class="n">${total}</div><div class="l">${t('prog.cards')}</div></div>
+    <div class="item"><div class="n">${seen}</div><div class="l">${t('prog.seen')}</div></div>
+    <div class="item"><div class="n">${a === null ? '—' : Math.round(a * 100) + '%'}</div><div class="l">${t('prog.acc')}</div></div>
+    <div class="item"><div class="n">${tuts}/${REPERTOIRE.length}</div><div class="l">${t('prog.tuts')}</div></div>
   `;
 
   let bars = '';
   for (const line of REPERTOIRE) {
-    const cs = lineCards(line.id);
+    const cs = CARDS.filter((c) => c.lineId === line.id);
     let s = 0, o = 0, b = 0;
     for (const c of cs) {
       const st = stats[c.id];
       if (st && st.c + st.w > 0) { s++; o += st.c; b += st.w; }
     }
     const pct = o + b ? Math.round((o / (o + b)) * 100) : 0;
-    const sub = o + b ? `${s}/${cs.length} 卡 · 正确率 ${pct}%` : `${cs.length} 卡 · 尚未开始`;
+    const sub = o + b ? t('prog.started', s, cs.length, pct) : t('prog.notStarted', cs.length);
+    const gname = line.group === 'White' ? t('side.white') : t('side.black');
     bars += `<div class="bar-row">
-      <div class="lbl"><span>${line.group} · ${line.title}</span><span class="pct">${sub}</span></div>
+      <div class="lbl"><span>${gname} · ${bi(line.title)}</span><span class="pct">${sub}</span></div>
       <div class="bar"><i style="width:${o + b ? pct : 0}%"></i></div>
     </div>`;
   }
   $('#prog-bars').innerHTML = bars;
 
-  // 薄弱卡片
   const weak = CARDS
-    .filter((c) => { const s = stats[c.id]; return s && s.c + s.w >= 1 && acc(s) < 1; })
-    .sort((x, y) => acc(stats[x.id]) - acc(stats[y.id]) || stats[y.id].c + stats[y.id].w - stats[x.id].c - stats[x.id].w)
+    .filter((c) => {
+      const s = stats[c.id];
+      return s && s.c + s.w >= 1 && acc(s) < 1;
+    })
+    .sort(
+      (x, y) =>
+        acc(stats[x.id]) - acc(stats[y.id]) ||
+        stats[y.id].c + stats[y.id].w - (stats[x.id].c + stats[x.id].w)
+    )
     .slice(0, 8);
   if (!weak.length) {
-    $('#weak-list').innerHTML = `<div class="empty-tip">还没有错题记录。先去钻练刷一轮，错题会自动汇总到这里。</div>`;
+    $('#weak-list').innerHTML = `<div class="empty-tip">${t('prog.weakEmpty')}</div>`;
   } else {
     $('#weak-list').innerHTML = weak
       .map((c) => {
         const s = stats[c.id];
         return `<div class="weak-item">
-          <span>${c.title} · <b>${c.san}</b> <span style="color:var(--ink-3)">${c.seqName}</span></span>
+          <span>${bi(c.title)} · <b>${c.san}</b> <span style="color:var(--ink-3)">${bi(c.seqName)}</span></span>
           <span style="display:flex;gap:10px;align-items:center">
             <span class="w-acc">${s.c}/${s.c + s.w}</span>
-            <button class="btn" data-card="${c.id}">重练</button>
+            <button class="btn" data-card="${c.id}">${t('btn.retry')}</button>
           </span>
         </div>`;
       })
@@ -538,11 +869,11 @@ function renderProgress() {
     );
   }
 
-  $('#road-list').innerHTML = ROADMAP.map((r) => `<li><span class="wk">${r.week}</span><span>${r.text}</span></li>`).join('');
+  $('#road-list').innerHTML = ROADMAP.map(
+    (r) => `<li><span class="wk">${bi(r.week)}</span><span>${bi(r.text)}</span></li>`
+  ).join('');
 }
 
-/* ═══════════ 启动 ═══════════ */
-renderLineList();
-renderDetail();
-renderBrowseBoard();
+/* ═══════════ boot ═══════════ */
+applyI18n();
 

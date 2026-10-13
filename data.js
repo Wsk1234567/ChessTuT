@@ -1,229 +1,51 @@
-// 开局专项训练系统 — 开局库数据
-// 每条线：main 为主线 SAN；sidelines 为常见变着；notes 以 ply 索引（0 起）为键。
-// drill 为 true 的线会自动生成钻练卡片（只取轮到你走的着法）。
+// Opening repertoire data — assembled from line modules
+import { WHITE_LINES } from './lines-white.js';
+import { BLACK_LINES } from './lines-black.js';
 
-export const REPERTOIRE = [
-  // ── 白棋 1：意大利开局 vs 1...e5 ─────────────────────────────
-  {
-    id: 'italian',
-    side: 'w',
-    group: '白棋',
-    title: '意大利开局',
-    against: '1...e5',
-    eco: 'C50–C54',
-    intro:
-      '最经典的王翼开局。白象直指 f7，c3–d3 安静体系不急着打开中心，先把子力摆好再战。适配 1000–1400 段：陷阱少、计划清楚、转入中局自然。',
-    plan:
-      '出子顺序：马–象–c3–d3–易位–Re1。中局目标：e4/e5 争夺、Re1 支撑、必要时 d3-d4 撑开中心，或 f2-f4-f5 发起王翼进攻。',
-    main: {
-      name: '安静体系（Giuoco Pianissimo）',
-      drill: true,
-      san: ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5', 'c3', 'Nf6', 'd3', 'd6', 'O-O', 'O-O', 'Re1'],
-      notes: {
-        0: '占领中心，打开后和象的通路。',
-        2: '马跳出，同时攻击 e5 兵——开局双重目的的好棋。',
-        4: '意大利象：直指黑王最弱的 f7。',
-        6: 'c3 是本体系灵魂：准备将来 d4 撑中心，也给后留出 c2 格。',
-        8: '安静中心。不急于 d4，先把子力摆好——这个水平段对手往往自己先崩。',
-        10: '王车易位优先于一切花活。',
-        12: '车占半开放 e 线，支援中心；下一步通常 Nbd2-f1-g3 调马。',
-      },
-    },
-    sidelines: [
-      {
-        name: '3...Nf6 柏林防马',
-        san: ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Nf6', 'd3', 'Bc5', 'c3', 'd6', 'O-O'],
-        note: '对手抢先出马盯 e4：继续安静体系（4.d3），避开 Open Berlin 的复杂理论。局面和主线几乎一样。',
-      },
-      {
-        name: '3...Be7 匈牙利防马',
-        san: ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Be7', 'd3', 'Nf6', 'O-O', 'O-O', 'Re1', 'd6'],
-        note: '对手把象收回去求稳：照常 d3、易位、Re1。他子力偏被动，你空间更好。',
-      },
-      {
-        name: '1...e6 法兰西（推进）',
-        san: ['e4', 'e6', 'd4', 'd5', 'e5'],
-        note: '法兰西推进体系：空间归我。接着 c3、Nf3、Bd3 摆好，警惕对手 ...c5–...Qb6 反击 d4。',
-      },
-      {
-        name: '1...c6 卡罗-卡恩（推进）',
-        san: ['e4', 'c6', 'd4', 'd5', 'e5'],
-        note: '同样的推进结构：c3–Nf3–Bd3 稳步出子，黑格象出不来是他的长期烦恼。',
-      },
-    ],
-  },
+export const REPERTOIRE = [...WHITE_LINES, ...BLACK_LINES];
 
-  // ── 白棋 2：大错开局 vs 西西里 1...c5 ────────────────────────
-  {
-    id: 'gp',
-    side: 'w',
-    group: '白棋',
-    title: '大错开局（Grand Prix）',
-    against: '1...c5',
-    eco: 'B20–B21',
-    intro:
-      '对抗西西里最省心的武器：不背理论，冲 f 兵、后调 h4、象瞄 c4/b5。计划从第 3 步就固定了，非常适合时间有限的训练者。',
-    plan:
-      '固定套路：Nc3–f4–Nf3–d3–O-O–Qe1–Qh4，然后 f4-f5 撕开 f 线，或 Rf3-h3 叠加攻王。黑格象走 Bc4 或 Bb5 瞄王翼。',
-    main: {
-      name: '经典进攻套路',
-      drill: true,
-      san: ['e4', 'c5', 'Nc3', 'Nc6', 'f4', 'g6', 'Nf3', 'Bg7', 'd3', 'd6', 'Be2', 'Nf6', 'O-O', 'O-O', 'Qe1', 'a6', 'Qh4'],
-      notes: {
-        2: '西西里最常见应法，先把马跳到 c3，f 兵的路已经让开。',
-        4: '大错核心：f 兵冲锋，目标 f5 或配合后翼调子攻王。',
-        8: 'd3 补中心，c1 象打开斜线——全盘子力各就各位。',
-        10: '象先出来（不挡 f 兵的路），这是易位的前提。',
-        12: '先易位，再进攻。别在王还没安全时就全军出击。',
-        14: '后准备经 e1 调往 h4：王翼重火力集结的第一步。',
-        16: '经典 Qh4！下一步常见 f5、Ng5 或 Rf3-h3，全部冲着 g7/h7 去。',
-      },
-    },
-    sidelines: [
-      {
-        name: '2...e6 应法',
-        san: ['e4', 'c5', 'Nc3', 'e6', 'f4', 'd5', 'exd5', 'exd5', 'd4', 'Nf6', 'Nf3', 'Be7'],
-        note: '对手走 2...e6：照样冲 f 兵；兑完中心兵后 d4 站稳，结构类似法兰西交换，照常 Nf3、Bd3 攻王翼。',
-      },
-      {
-        name: '古典结构：...Nc6 + ...e6',
-        san: ['e4', 'c5', 'Nc3', 'Nc6', 'f4', 'e6', 'Nf3', 'Nf6', 'Bb5'],
-        note: '对手不出侧象改走 ...e6：计划完全不变。Bb5 钉住 c6 马，给 e6/d5 施压。',
-      },
-    ],
-  },
-
-  // ── 白棋 3：伦敦体系 vs 1.d4 ─────────────────────────────────
-  {
-    id: 'london',
-    side: 'w',
-    group: '白棋',
-    title: '伦敦体系',
-    against: '1.d4',
-    eco: 'D02',
-    intro:
-      '白棋对 1.d4 最一劳永逸的答案：不管黑棋摆什么，都是 Bf4–e3–Nf3–Bd3 这一套。一套武器应对所有黑方体系。',
-    plan:
-      '固定顺序：Bf4（先出象再封 e 兵）→ e3 → Nf3 → h3（给象留退路）→ Bd3 → O-O → c3/Nbd2/Re1。中局找 e4 或 c4 撑开，象瞄 h7。',
-    main: {
-      name: '主线结构',
-      drill: true,
-      san: ['d4', 'd5', 'Bf4', 'Nf6', 'e3', 'e6', 'Nf3', 'Be7', 'h3', 'O-O', 'Bd3', 'Nbd7', 'O-O'],
-      notes: {
-        2: '伦敦标志：象先出到兵链外面，e 兵留着以后补 e3 把链关上。',
-        6: '马站 f3 控 e5，与 Bf4 呼应。',
-        8: 'h3 是保险：对手 ...Nh5 时象退 h2 继续统治大斜线。',
-        10: 'Bd3 锁准 h7——将来 c3、Nbd2、Qe2、e3-e4 的推进都有了支点。',
-        12: '出子完成。接下来 c3 加固、Nbd2 联马、Re1 瞄 e4 撑中心。',
-      },
-    },
-    sidelines: [
-      {
-        name: '1...Nf6 应法',
-        san: ['d4', 'Nf6', 'Bf4', 'e6', 'e3', 'd5', 'Nf3', 'Be7', 'h3', 'O-O', 'Bd3'],
-        note: '对手先跳马：顺序微调，方子不变——象、e3、马、d3，最后易位。',
-      },
-      {
-        name: '1...c5 应法',
-        san: ['d4', 'c5', 'd5', 'Nf6', 'c4', 'e6', 'Nc3', 'exd5', 'cxd5', 'g6'],
-        note: '对手反击 c5：d5 占空间转成类贝诺尼结构。c4、Nc3 把 d5 撑结实，之后照常 Nf3、Bf4 放出来。',
-      },
-      {
-        name: '1...f5? 应法',
-        san: ['d4', 'f5', 'Bf4', 'Nf6', 'e3', 'e6', 'Nf3', 'Be7', 'Bd3'],
-        note: '对手摆荷兰：照常伦敦结构。f5 让他王前 e6/g6 变弱，中局找 e4 撑开中心一击。',
-      },
-    ],
-  },
-
-  // ── 黑棋 1：卡罗-卡恩 vs 1.e4 ────────────────────────────────
-  {
-    id: 'caro',
-    side: 'b',
-    group: '黑棋',
-    title: '卡罗-卡恩防御',
-    against: '1.e4',
-    eco: 'B10–B19',
-    intro:
-      '黑棋对 1.e4 最坚固的堡垒：先 ...c6 再 ...d5，象出到兵链外。局面型、陷阱少，失误容忍度高——业余赛场的利器。',
-    plan:
-      '推进变例核心：...Bf5 把象放出来 → ...e6 关链 → ...c5 反击 d4 → ...Nc6/...Qb6 加压。中局目标：拆掉白棋 e5 楔子或在 c 线搞事。',
-    main: {
-      name: '推进变例（3.e5）',
-      drill: true,
-      san: ['e4', 'c6', 'd4', 'd5', 'e5', 'Bf5', 'Nf3', 'e6', 'Be2', 'c5', 'c3', 'Nc6', 'O-O'],
-      notes: {
-        1: '卡罗-卡恩：先让 d 兵吃 e4，黑格象有机会先出链外。',
-        3: '中心挑战就位：...d5 站稳，下一步看白棋怎么走。',
-        5: '核心着法！象出到链外——这正是 ...c6 的全部意义。',
-        7: '链补牢（e6），同时给 ...c5 反击撑腰。',
-        9: '关键反击！在中心撬 d4——卡罗推进变例的灵魂。',
-        11: '子力跟进，c/d 线火力叠加。白棋 e5 兵根基（d4）正在晃。',
-      },
-    },
-    sidelines: [
-      {
-        name: '3.Nc3 经典变例',
-        san: ['e4', 'c6', 'd4', 'd5', 'Nc3', 'dxe4', 'Nxe4', 'Bf5', 'Ng3', 'Bg6'],
-        note: '最常见主线：先兑掉中心兵，象照常出链外。之后 ...Nf6、...e6、...Be7 稳步出子；白棋 Ng3 后 h4-h5 是他常用的撵象手段，别怕。',
-        drill: true,
-      },
-      {
-        name: '3.exd5 交换变例',
-        san: ['e4', 'c6', 'd4', 'd5', 'exd5', 'cxd5', 'Bd3', 'Nc6', 'Nf3', 'Bg4'],
-        note: '结构对称、双方好下：照常 ...Nc6、...Bg4、...e6、...Be7 出子，寻求 ...e5 撑开。',
-        drill: true,
-      },
-    ],
-  },
-
-  // ── 黑棋 2：斯拉夫防御 vs 1.d4 ───────────────────────────────
-  {
-    id: 'slav',
-    side: 'b',
-    group: '黑棋',
-    title: '斯拉夫防御',
-    against: '1.d4',
-    eco: 'D10–D19',
-    intro:
-      '1.d4 最扎实的回答：...c6 巩固 ...d5，还能把象放到兵链外（后翼弃兵吃了有根）。主变理论稍长，但每一步都有明确理由。',
-    plan:
-      '主线：...dxc4 拿兵 → ...Bf5 象出链外 → ...e6 关链 → ...Bb4 钉马 → 双马易位。白棋弃兵回不来时，多出来的兵就是你的胜势基础。',
-    main: {
-      name: '主线（象出链外）',
-      drill: true,
-      san: ['d4', 'd5', 'c4', 'c6', 'Nf3', 'Nf6', 'Nc3', 'dxc4', 'a4', 'Bf5', 'e3', 'e6', 'Bxc4', 'Bb4', 'O-O', 'O-O'],
-      notes: {
-        3: '斯拉夫标志：...c6 让 ...dxc4 有根，c 兵还支援中心。',
-        7: '吃掉弃兵！...dxc4 有 c6 兵撑腰，a4 之前先得实惠。',
-        9: '象出链外——斯拉夫相对后翼弃兵的核心优点。',
-        11: '链关上（e6），结构完整：白棋很难再碰我的 d5 根基。',
-        13: 'Bb4 钉住 c3 马，减轻中心压力并瞄 e4。',
-        15: '出子完成。之后 ...Ne4 占中心，或 ...Nbd7-b6、...Re8 慢慢改善。',
-      },
-    },
-    sidelines: [
-      {
-        name: '半斯拉夫（4...e6）',
-        san: ['d4', 'd5', 'c4', 'c6', 'Nf3', 'Nf6', 'Nc3', 'e6', 'Bg5', 'h6', 'Bh4', 'Be7'],
-        note: '更稳妥的半斯拉夫：先 ...e6 补链，代价是白格象暂时关在家里。...dxc4 后 ...b5 再放象出来。',
-        drill: true,
-      },
-      {
-        name: '白棋 3.Nc3',
-        san: ['d4', 'd5', 'c4', 'c6', 'Nc3', 'Nf6', 'Nf3', 'e6'],
-        note: '白棋先跳马：照常 ...Nf6、...e6，多半转回半斯拉夫结构，计划不变。',
-        drill: true,
-      },
-    ],
-  },
-];
-
-// 学习路线（进度页展示）
+// Learning roadmap (Progress tab) — bilingual
 export const ROADMAP = [
-  { week: '第 1–2 周', text: '只学白棋意大利主线：走完 13 步，每步能说出理由。每天 5 张钻练卡。' },
-  { week: '第 3–4 周', text: '加入黑棋卡罗-卡恩（推进 + 经典两线）。对局中只用已学体系。' },
-  { week: '第 5–6 周', text: '白棋对 1.d4 上伦敦；斯拉夫主线进入钻练。' },
-  { week: '第 7–8 周', text: '大错开局收官，全部 5 套体系滚动复习，薄弱卡正确率拉到 85% 以上。' },
-  { week: '之后', text: '每 4 周一个循环：3 周训练 + 1 周比赛；赛后把对手走出的新招补进对应变着笔记。' },
+  {
+    week: { en: 'Weeks 1–2', zh: '第 1–2 周' },
+    text: {
+      en: 'Italian Game main line only: walk all 13 moves and say the reason for each. Five drill cards a day.',
+      zh: '只学意大利主线：走完 13 步，每步能说出理由。每天 5 张钻练卡。',
+    },
+  },
+  {
+    week: { en: 'Weeks 3–4', zh: '第 3–4 周' },
+    text: {
+      en: 'Add the Caro-Kann (Advance + Classical). In games, use only the systems you have studied.',
+      zh: '加入卡罗-卡恩（推进 + 经典）。对局中只用已学体系。',
+    },
+  },
+  {
+    week: { en: 'Weeks 5–6', zh: '第 5–6 周' },
+    text: {
+      en: 'Add the London as White vs 1.d4; start the Slav main line drills.',
+      zh: '白棋对 1.d4 上伦敦；斯拉夫主线进入钻练。',
+    },
+  },
+  {
+    week: { en: 'Weeks 7–8', zh: '第 7–8 周' },
+    text: {
+      en: 'Finish the Grand Prix, add Ruy López and French. Push weak-card accuracy above 85%.',
+      zh: '大错开局收官，加入西班牙和法兰西。薄弱卡正确率拉到 85% 以上。',
+    },
+  },
+  {
+    week: { en: 'Weeks 9–10', zh: '第 9–10 周' },
+    text: {
+      en: 'Scotch, King’s Indian, and Accelerated Dragon. Run the Tutorial for every line before drilling it.',
+      zh: '苏格兰、王翼印度、加速龙。每条线先过教程再钻练。',
+    },
+  },
+  {
+    week: { en: 'After', zh: '之后' },
+    text: {
+      en: 'Four-week cycles: 3 weeks training + 1 week tournament. After each event, add the opponent’s new move to the matching sideline note.',
+      zh: '每 4 周一个循环：3 周训练 + 1 周比赛。赛后把对手走出的新招补进对应变着笔记。',
+    },
+  },
 ];
