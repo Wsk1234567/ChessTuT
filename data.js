@@ -1,16 +1,27 @@
 // Opening repertoire data — assembled from line modules
+// Pilots (deepened schema) override same-id entries from lines-*.js
 import { WHITE_LINES } from './lines-white.js';
 import { BLACK_LINES } from './lines-black.js';
+import { ITALIAN } from './openings/italian.js';
+import { CARO } from './openings/caro.js';
+import { SLAV } from './openings/slav.js';
 
-export const REPERTOIRE = [...WHITE_LINES, ...BLACK_LINES];
+function merge(base, upgrades) {
+  return base.map((l) => upgrades[l.id] || l);
+}
+
+const white = merge(WHITE_LINES, { italian: ITALIAN });
+const black = merge(BLACK_LINES, { caro: CARO, slav: SLAV });
+
+export const REPERTOIRE = [...white, ...black];
 
 // Learning roadmap (Progress tab) — bilingual
 export const ROADMAP = [
   {
     week: { en: 'Weeks 1–2', zh: '第 1–2 周' },
     text: {
-      en: 'Italian Game main line only: walk all 13 moves and say the reason for each. Five drill cards a day.',
-      zh: '只学意大利主线：走完 13 步，每步能说出理由。每天 5 张钻练卡。',
+      en: 'Italian Game main line only: walk all moves and say the reason for each. Five drill cards a day.',
+      zh: '只学意大利主线：走完全部着法，每步能说出理由。每天 5 张钻练卡。',
     },
   },
   {

@@ -260,7 +260,7 @@ export const BLACK_LINES = [
         7: { en: 'The Dragon fianchetto: g7 becomes a monster on the long diagonal.', zh: '龙式侧翼象：g7 在长斜线上是怪兽。' },
         11: { en: 'Standard development against the English Attack setup.', zh: '对英式攻击的标准出子。' },
         13: { en: 'White’s bishop goes to c4 — watch the ...d5 break later.', zh: '白象到 c4——留心将来的 ...d5。' },
-        15: { en: 'd6 supports e5 and covers c5/b4 squares.', zh: 'd6 支撑 e5，覆盖 c5/b4。' },
+        15: { en: 'd6 supports e5 and controls the c5 and e5 squares.', zh: 'd6 支撑 e5，控制 c5 和 e5 格。' },
         17: { en: 'Complete development; next: ...Bd7–Qa5, or ...a6–...b5 expanding on the queenside.', zh: '出子完成；下一步 ...Bd7–Qa5，或 ...a6–...b5 后翼扩张。' },
       },
     },

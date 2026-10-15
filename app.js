@@ -9,6 +9,9 @@ const PIECE_FILE = { k: 'K', q: 'Q', r: 'R', b: 'B', n: 'N', p: 'P' };
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 const lineById = Object.fromEntries(REPERTOIRE.map((l) => [l.id, l]));
 const moveNo = (i) => Math.floor(i / 2) + 1;
+/** note may be {en,zh} (plain) or {brief:{en,zh}, detail:{en,zh}} (layered) */
+const briefOf = (n) => (n && n.brief ? bi(n.brief) : bi(n));
+const detailOf = (n) => (n && n.detail ? bi(n.detail) : null);
 
 /* ═══════════ storage ═══════════ */
 const STORE_KEY = 'ot-progress-v1';
@@ -75,6 +78,23 @@ function buildCards() {
         });
       }
     });
+    (line.plans || []).forEach((p, pi) => {
+      const ch = new Chess();
+      for (const s of p.after) ch.move(s);
+      cards.push({
+        id: `${line.id}:plan:${pi}`,
+        type: 'plan',
+        lineId: line.id,
+        title: line.title,
+        seqName: { en: 'Plan quiz', zh: '计划选择题' },
+        side: line.side,
+        fen: ch.fen(),
+        question: p.question,
+        choices: p.choices,
+        fullMove: moveNo(p.after.length),
+        note: null,
+      });
+    });
   }
   return cards;
 }
@@ -122,6 +142,54 @@ function drawArrow(svg, from, to, orientation, color = '#3E7A52') {
 function clearArrow(svg) {
   svg.innerHTML = '';
 }
+
+/* ── interactive square references in prose ── */
+let pinnedSq = null;
+function applySquareHighlight(sq, cls) {
+  document.querySelectorAll('[data-sq]').forEach((el) => {
+    el.classList.remove('sq-focus', 'sq-pin');
+    if (sq && el.dataset.sq === sq) el.classList.add(cls);
+  });
+}
+function linkSquaresIn(root) {
+  if (!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const texts = [];
+  while (walker.nextNode()) texts.push(walker.currentNode);
+  for (const node of texts) {
+    const parent = node.parentElement;
+    if (!parent || parent.closest('.sq-ref') || parent.closest('script')) continue;
+    const src = node.nodeValue;
+    if (!/[a-h][1-8]/.test(src)) continue;
+    const wrapped = src.replace(/([a-h][1-8])/g, '<span class="sq-ref" data-sqref="$1">$1</span>');
+    const span = document.createElement('span');
+    span.innerHTML = wrapped;
+    node.replaceWith(span);
+  }
+}
+document.addEventListener('mouseover', (e) => {
+  const el = e.target.closest && e.target.closest('.sq-ref');
+  if (el && !pinnedSq) applySquareHighlight(el.dataset.sqref, 'sq-focus');
+});
+document.addEventListener('mouseout', (e) => {
+  const el = e.target.closest && e.target.closest('.sq-ref');
+  if (el && !pinnedSq) applySquareHighlight(pinnedSq, pinnedSq ? 'sq-pin' : '');
+});
+document.addEventListener('click', (e) => {
+  const el = e.target.closest && e.target.closest('.sq-ref');
+  if (el) {
+    e.stopPropagation();
+    e.preventDefault();
+    const sq = el.dataset.sqref;
+    pinnedSq = pinnedSq === sq ? null : sq;
+    applySquareHighlight(pinnedSq, pinnedSq ? 'sq-pin' : '');
+    return;
+  }
+  if (pinnedSq) {
+    pinnedSq = null;
+    applySquareHighlight(null, '');
+  }
+}, true);
 
 function renderBoard(el, chess, opts = {}) {
   const ori = opts.orientation || 'w';
@@ -208,10 +276,20 @@ $('#lang-btn').addEventListener('click', () => {
 });
 
 /* ═══════════ library browse ═══════════ */
-const browse = { lineId: REPERTOIRE[0].id, seqIdx: 0, ply: 0 };
+const browse = { lineId: REPERTOIRE[0].id, seqIdx: 0, ply: 0, mistakeIdx: null };
 
 function currentSeq(b = browse) {
   const line = lineById[b.lineId];
+  if (b.mistakeIdx != null && line.mistakes && line.mistakes[b.mistakeIdx]) {
+    const m = line.mistakes[b.mistakeIdx];
+    return {
+      name: m.title,
+      san: [...m.wrong, ...m.punish],
+      notes: { [m.wrong.length - 1]: { brief: m.title, detail: m.lesson } },
+      note: m.lesson,
+      isMistake: true,
+    };
+  }
   return b.seqIdx === 0
     ? { name: line.main.name, san: line.main.san, notes: line.main.notes || {}, note: null }
     : line.sidelines[b.seqIdx - 1];
@@ -235,6 +313,7 @@ function renderLineList() {
       browse.lineId = b.dataset.id;
       browse.seqIdx = 0;
       browse.ply = 0;
+      browse.mistakeIdx = null;
       renderLineList();
       renderDetail();
       renderBrowseBoard();
@@ -267,15 +346,31 @@ function renderBrowseBoard() {
   mvEls.forEach((m) => m.classList.toggle('cur', Number(m.dataset.i) === browse.ply - 1));
 }
 
+function noteBoxHtml(tag, note) {
+  const d = detailOf(note);
+  return (
+    `<div class="note-box"><span class="tag">${tag}</span>${briefOf(note)}` +
+    (d
+      ? `<div class="note-detail" style="display:none">${d}</div><button type="button" class="note-more">Detail ▾</button>`
+      : '') +
+    `</div>`
+  );
+}
+
 function renderDetail() {
+  renderDetailRaw();
+  linkSquaresIn($('#detail'));
+}
+
+function renderDetailRaw() {
   const line = lineById[browse.lineId];
   const seq = currentSeq();
   const el = $('#detail');
 
   let switchHtml = `<div class="seq-switch">`;
-  switchHtml += `<button class="${browse.seqIdx === 0 ? 'on' : ''}" data-seq="0">${t('seq.main', bi(line.main.name))}</button>`;
+  switchHtml += `<button class="${browse.seqIdx === 0 && browse.mistakeIdx == null ? 'on' : ''}" data-seq="0">${t('seq.main', bi(line.main.name))}</button>`;
   line.sidelines.forEach((s, i) => {
-    switchHtml += `<button class="${browse.seqIdx === i + 1 ? 'on' : ''}" data-seq="${i + 1}">${bi(s.name)}</button>`;
+    switchHtml += `<button class="${browse.seqIdx === i + 1 && browse.mistakeIdx == null ? 'on' : ''}" data-seq="${i + 1}">${bi(s.name)}</button>`;
   });
   switchHtml += `</div>`;
 
@@ -293,21 +388,39 @@ function renderDetail() {
 
   let noteHtml = '';
   if (browse.ply === 0) {
-    noteHtml = `<div class="note-box"><span class="tag">${t('note.howto')}</span>${t('note.howto.body')}</div>`;
+    noteHtml = noteBoxHtml(t('note.howto'), { en: t('note.howto.body'), zh: t('note.howto.body') });
   } else if (seq.notes[browse.ply - 1]) {
-    noteHtml = `<div class="note-box"><span class="tag">${t('note.thismove')} · ${seq.san[browse.ply - 1]}</span>${bi(seq.notes[browse.ply - 1])}</div>`;
+    noteHtml = noteBoxHtml(`${t('note.thismove')} · ${seq.san[browse.ply - 1]}`, seq.notes[browse.ply - 1]);
   } else {
     let idx = -1;
     for (let i = browse.ply - 1; i >= 0; i--) {
       if (seq.notes[i]) { idx = i; break; }
     }
     if (idx >= 0) {
-      noteHtml = `<div class="note-box"><span class="tag">${t('note.key.at', seq.san[idx], moveNo(idx))}</span>${bi(seq.notes[idx])}</div>`;
+      noteHtml = noteBoxHtml(t('note.key.at', seq.san[idx], moveNo(idx)), seq.notes[idx]);
     } else if (seq.note) {
-      noteHtml = `<div class="note-box"><span class="tag">${bi(seq.name)}</span>${bi(seq.note)}</div>`;
+      noteHtml = noteBoxHtml(seq.isMistake ? bi(seq.name) : bi(seq.name), seq.note);
     } else {
-      noteHtml = `<div class="note-box"><span class="tag">${t('note.tip')}</span>${t('note.tip.body')}</div>`;
+      noteHtml = noteBoxHtml(t('note.tip'), { en: t('note.tip.body'), zh: t('note.tip.body') });
     }
+  }
+
+  // theory-end banner (main line only)
+  let exitHtml = '';
+  const exit = !seq.isMistake && browse.seqIdx === 0 ? line.main.exit : null;
+  if (exit && browse.ply >= exit.afterPly) {
+    exitHtml = `<div class="exit-banner"><span class="tag">${getLang() === 'zh' ? '离开开局' : 'Theory ends'}</span>${bi(exit.text)}</div>`;
+  }
+
+  // mistakes library
+  let missHtml = '';
+  if (line.mistakes && line.mistakes.length) {
+    missHtml = `<h3 style="margin-top:16px">${getLang() === 'zh' ? '常见错误' : 'Common mistakes'}</h3><div class="mistake-list">`;
+    line.mistakes.forEach((m, i) => {
+      missHtml += `<div class="mistake-item"><span>${bi(m.title)}</span>
+        <button class="btn" data-mistake="${i}">${getLang() === 'zh' ? '推演' : 'Replay'}</button></div>`;
+    });
+    missHtml += `</div>`;
   }
 
   el.innerHTML = `
@@ -323,6 +436,8 @@ function renderDetail() {
     <h3>${t('moves')}</h3>
     ${ml}
     ${noteHtml}
+    ${exitHtml}
+    ${missHtml}
     <div class="plan-box"><b>${t('plan.middlegame')}:</b> ${bi(line.plan)}</div>
   `;
 
@@ -330,6 +445,7 @@ function renderDetail() {
     b.addEventListener('click', () => {
       browse.seqIdx = Number(b.dataset.seq);
       browse.ply = 0;
+      browse.mistakeIdx = null;
       renderDetail();
       renderBrowseBoard();
     })
@@ -337,6 +453,22 @@ function renderDetail() {
   el.querySelectorAll('.movelist .mv:not(.empty)').forEach((m) =>
     m.addEventListener('click', () => {
       browse.ply = Number(m.dataset.i) + 1;
+      renderDetail();
+      renderBrowseBoard();
+    })
+  );
+  el.querySelectorAll('.note-more').forEach((b) =>
+    b.addEventListener('click', () => {
+      const d = b.previousElementSibling;
+      const open = d.style.display !== 'none';
+      d.style.display = open ? 'none' : 'block';
+      b.textContent = open ? 'Detail ▾' : 'Detail ▴';
+    })
+  );
+  el.querySelectorAll('button[data-mistake]').forEach((b) =>
+    b.addEventListener('click', () => {
+      browse.mistakeIdx = Number(b.dataset.mistake);
+      browse.ply = 0;
       renderDetail();
       renderBrowseBoard();
     })
@@ -376,6 +508,7 @@ function setFb(kind, html) {
   const fb = $('#drill-fb');
   fb.className = 'feedback' + (kind ? ' ' + kind : '');
   fb.innerHTML = html;
+  linkSquaresIn(fb);
 }
 
 function renderDrillBoard() {
@@ -398,6 +531,12 @@ function pctText(cardId) {
 }
 
 function loadCard(card) {
+  loadCardRaw(card);
+  linkSquaresIn($('#drill-ctx'));
+  linkSquaresIn($('#drill-fb'));
+}
+
+function loadCardRaw(card) {
   drill.card = card;
   drill.chess = new Chess(card.fen);
   drill.sel = null;
@@ -406,6 +545,17 @@ function loadCard(card) {
   drill.status = 'play';
   drill.lastMove = null;
   lastCardId = card.id;
+
+  if (card.type === 'plan') {
+    $('#drill-q').textContent = t('drill.q', sideName(card.side), bi(card.title));
+    const s = stats[card.id];
+    const seenTxt = s && s.c + s.w > 0 ? t('drill.history', s.c, s.c + s.w) : t('drill.new');
+    $('#drill-stat').innerHTML = `${t('drill.set', drill.sessionOk, drill.sessionAll)} · <span class="streak">${seenTxt}</span>`;
+    $('#drill-ctx').innerHTML = `<b>${bi(card.seqName)}</b> · move ${card.fullMove} — ${bi(card.question)}`;
+    renderDrillBoard();
+    renderPlanChoices(card);
+    return;
+  }
 
   $('#drill-q').textContent = t('drill.q', sideName(card.side), bi(card.title));
   const s = stats[card.id];
@@ -417,12 +567,51 @@ function loadCard(card) {
   renderDrillBoard();
 }
 
+function renderPlanChoices(card) {
+  const fb = $('#drill-fb');
+  fb.className = 'feedback';
+  fb.innerHTML = `<span class="fb-title">${bi(card.question)}</span><div class="plan-choices"></div>`;
+  const box = fb.querySelector('.plan-choices');
+  card.choices.forEach((ch, i) => {
+    const b = document.createElement('button');
+    b.innerHTML = `${bi(ch.text)}`;
+    b.addEventListener('click', () => {
+      if (drill.status !== 'play') return;
+      const ok = !!ch.correct;
+      record(card.id, ok);
+      drill.sessionAll++;
+      if (ok) drill.sessionOk++;
+      drill.status = ok ? 'done' : 'play';
+      box.querySelectorAll('button').forEach((btn, j) => {
+        const c = card.choices[j];
+        if (c.correct) {
+          btn.classList.add('correct');
+          btn.innerHTML = `${bi(c.text)}<span class="why">${bi(c.why)}</span>`;
+          linkSquaresIn(btn);
+        } else if (j === i) {
+          btn.classList.add('wrong');
+          btn.innerHTML = `${bi(c.text)}<span class="why">${bi(c.why)}</span>`;
+          linkSquaresIn(btn);
+        }
+      });
+      $('#drill-stat').innerHTML = `${t('drill.set', drill.sessionOk, drill.sessionAll)} · <span class="streak">${t('drill.accuracy', pctText(card.id))}</span>`;
+      if (ok) {
+        setTimeout(() => {
+          if (drill.status === 'done') nextCard();
+        }, 2200);
+      }
+    });
+    box.appendChild(b);
+  });
+  linkSquaresIn(fb);
+}
+
 function nextCard() {
   loadCard(pickCard());
 }
 
 function onSquareClick(sq) {
-  if (!drill.card || drill.status !== 'play') return;
+  if (!drill.card || drill.status !== 'play' || drill.card.type === 'plan') return;
   const chess = drill.chess;
   const piece = chess.get(sq);
 
@@ -467,7 +656,7 @@ function onSquareClick(sq) {
     record(card.id, true);
     drill.sessionOk++;
     drill.sessionAll++;
-    const note = card.note ? `<div style="margin-top:4px">${bi(card.note)}</div>` : '';
+    const note = card.note ? `<div style="margin-top:4px">${briefOf(card.note)}</div>` : '';
     setFb('ok', `<span class="fb-title">${t('drill.fb.correct')} ${mv.san}</span>${note}`);
     $('#drill-stat').innerHTML = `${t('drill.set', drill.sessionOk, drill.sessionAll)} · <span class="streak">${t('drill.accuracy', pctText(card.id))}</span>`;
     renderDrillBoard();
@@ -484,7 +673,7 @@ function onSquareClick(sq) {
   drill.sessionAll++;
   if (drill.wrong >= 2) {
     drill.status = 'reveal';
-    setFb('bad', t('drill.fb.reveal', card.san) + (card.note ? bi(card.note) : t('drill.fb.revealNote')));
+    setFb('bad', t('drill.fb.reveal', card.san) + (card.note ? briefOf(card.note) : t('drill.fb.revealNote')));
   } else {
     setFb('bad', t('drill.fb.notquite'));
   }
@@ -547,6 +736,7 @@ function setTutFb(kind, html) {
   const fb = $('#tut-fb');
   fb.className = 'tut-feedback' + (kind ? ' ' + kind : '');
   fb.innerHTML = html;
+  linkSquaresIn(fb);
 }
 
 function renderTutBoard() {
@@ -587,6 +777,11 @@ function startTutorial(lineId) {
 }
 
 function renderTutNarration() {
+  renderTutNarrationRaw();
+  linkSquaresIn($('#tut-narr'));
+}
+
+function renderTutNarrationRaw() {
   const line = tutLine();
   const el = $('#tut-narr');
   if (!line) {
@@ -620,14 +815,21 @@ function renderTutNarration() {
   const san = seq.san[tut.ply];
   const yours = (tut.ply % 2 === 0 ? 'w' : 'b') === line.side;
   const noteEntry = seq.notes[tut.ply];
-  const note = noteEntry ? bi(noteEntry) : yours ? t('tut.note.yourDefault') : t('tut.note.oppDefault');
+  const brief = noteEntry ? briefOf(noteEntry) : yours ? t('tut.note.yourDefault') : t('tut.note.oppDefault');
+  const detail = noteEntry ? detailOf(noteEntry) : null;
+  const note = detail ? `${brief}<div class="note-detail">${detail}</div>` : brief;
   const header = yours
     ? t('tut.moveTag', moveNo(tut.ply), true) + ' · ' + (tut.revealed || tut.mode === 'ready' ? san : t('tut.play'))
     : t('tut.moveTag', moveNo(tut.ply), false) + ' ' + san;
+  let exitHtml = '';
+  const exit = line.main.exit;
+  if (exit && tut.ply + 1 >= exit.afterPly) {
+    exitHtml = `<div class="exit-banner"><span class="step-tag">${getLang() === 'zh' ? '离开开局' : 'Theory ends'}</span>${bi(exit.text)}</div>`;
+  }
   el.innerHTML = `
     <span class="step-tag">${header}</span>
     <h4>${yours ? (tut.revealed || tut.mode === 'ready' ? `▶ ${san}` : t('tut.play')) : t('tut.theyPlay', san)}</h4>
-    <div style="color:var(--ink-2)">${note}</div>`;
+    <div style="color:var(--ink-2)">${note}</div>${exitHtml}`;
 }
 
 function setTutButtons() {

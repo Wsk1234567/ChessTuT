@@ -128,6 +128,34 @@
     border-left: 3px solid var(--brass); border-radius: 0 8px 8px 0; font-size: 13.5px;
   }
   .note-box .tag { display: block; font-size: 11px; letter-spacing: 2px; color: var(--brass-deep); margin-bottom: 4px; text-transform: uppercase; }
+  .note-detail { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); font-size: 12.8px; color: var(--ink-2); }
+  .note-more { display: block; margin-top: 6px; font-size: 11.5px; color: var(--brass-deep); cursor: pointer; background: none; border: none; padding: 0; letter-spacing: 1px; text-transform: uppercase; font-weight: 700; }
+  .note-more:hover { text-decoration: underline; }
+  .exit-banner {
+    margin-top: 12px; padding: 11px 14px; border-radius: 8px; font-size: 13px;
+    background: #F3E7C8; border: 1px solid var(--brass); color: #6B4E12;
+  }
+  .exit-banner .tag { display: block; font-size: 10.5px; letter-spacing: 2px; font-weight: 700; margin-bottom: 3px; text-transform: uppercase; }
+  .mistake-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px dashed var(--line); font-size: 12.5px; }
+  .mistake-item:last-child { border-bottom: none; }
+  .mistake-item button { flex-shrink: 0; }
+  .plan-choices { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+  .plan-choices button {
+    text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--card); cursor: pointer; font-family: var(--sans); font-size: 13px; color: var(--ink);
+  }
+  .plan-choices button:hover { border-color: var(--brass); }
+  .plan-choices button.correct { border-color: var(--ok); background: #EEF6F0; }
+  .plan-choices button.wrong { border-color: var(--bad); background: #FAEFEA; }
+  .plan-choices button .why { display: block; font-size: 11.5px; color: var(--ink-2); margin-top: 3px; }
+  .sq-ref {
+    display: inline; cursor: pointer; color: var(--brass-deep); font-family: var(--mono);
+    font-weight: 700; font-size: 0.95em; border-bottom: 1px dotted var(--brass);
+    background: none; border-left: none; border-right: none; border-top: none; padding: 0 1px;
+  }
+  .sq-ref:hover { background: var(--hl); border-radius: 3px; }
+  .sq.sq-focus { box-shadow: inset 0 0 0 3px var(--brass); z-index: 4; }
+  .sq.sq-pin { box-shadow: inset 0 0 0 3px var(--bad); z-index: 4; }
   .callout { margin-top: 10px; padding: 11px 13px; border-radius: 8px; font-size: 13px; border: 1px solid var(--line); }
   .callout .tag { display: block; font-size: 10.5px; letter-spacing: 2px; font-weight: 700; margin-bottom: 3px; text-transform: uppercase; }
   .callout.purpose { background: #EEF3F0; border-color: #C5D6CB; }
